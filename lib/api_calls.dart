@@ -1,4 +1,3 @@
-
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -24,10 +23,6 @@ Future<ChatGPT> fetchData(String query, String? api_key) async {
   return ChatGPT.fromJson(jsonDecode(response.body));
 }
 
-
-
-
-
 class ChatGPT {
   final String object;
   final ChatGPTmessage message;
@@ -52,6 +47,17 @@ class ChatGPTmessage {
 
   factory ChatGPTmessage.fromJson(Map<String, dynamic> map) {
     return ChatGPTmessage(role: map['role'], content: map['content']);
+  }
+}
+
+class Conversation {
+  final String role;
+  final String response;
+
+  const Conversation({required this.role, required this.response});
+
+  factory Conversation.fromJson(mmodel, rresponse) {
+    return Conversation(role: mmodel, response: rresponse);
   }
 }
 
