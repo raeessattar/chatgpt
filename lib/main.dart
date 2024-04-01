@@ -1,27 +1,81 @@
-import 'dart:io';
+import 'dart:async';
+
+import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 
 import 'package:chatgpt/api_calls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 ///
-///to store value of multiple response we will make list of responses
-///and print the list
-///there will be two lists one of myController and second of data
-///then print one by one
+///1: we will make a new column in the table
+///2: where each chat room will have unique number
+///3: we will make counter that will incremented after each time app oppened
+///4: this incremented value will be assign to the conversation number
+///5: the data will store in the same table, but with different chatnumber
+///6: when the app is loaded, last conversation will also be opened
 
 String? apiKey;
 const String roleUser = 'user';
 const String roleChatGPT = 'chatgpt';
 bool generatingResponse = false;
 
+//final database;
+
+List<Conversation> conversation = [];
+Set idSet = {};
+List<dynamic> idNumbers = [];
+int currentId = 1;
+
 void main() async {
   await dotenv.load(fileName: ".env");
   apiKey = dotenv.env["API_KEY"];
 
+  //this is used in Sqflite tutorial
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MyApp());
 }
 
+//making function of database
+Future<Database> openMyDatabase() async {
+  final dbPath = await getDatabasesPath();
+  final path = join(dbPath, 'my_database2.db');
+  final database =
+      await openDatabase(path, version: 1, onCreate: (db, version) async {
+    //creating table
+    return db.execute(
+        'CREATE TABLE conversation4(id INTEGER, role TEXT, response TEXT)');
+  });
+  return database;
+}
+
+//insert data function
+Future<void> insertData(Conversation conv) async {
+  final db = await openMyDatabase();
+  await db.insert('conversation4', conv.toMap());
+}
+
+//retrieve list of data of table
+Future<List<Conversation>> retrieveData() async {
+  final db = await openMyDatabase();
+  final List<Map<String, Object?>> dataMaps = await db.query('conversation4');
+  return dataMaps.map<Conversation>((e) => Conversation.fromJson(e)).toList();
+}
+
+//retrieve history data
+Future<List<Conversation>> retrieveHistoryData(int a) async {
+  final db = await openMyDatabase();
+  final List<Map<String, Object?>> dataMaps =
+      await db.query('conversation4', where: 'id = ?', whereArgs: [a]);
+  return dataMaps.map<Conversation>((e) => Conversation.fromJson(e)).toList();
+}
+
+///
+///
+///
+///
+///
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -31,8 +85,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Chat GPT App',
       theme: ThemeData(
-        colorScheme:
-            ColorScheme.fromSeed(seedColor: Color.fromARGB(172, 134, 2, 2)),
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.blue,
+            primary: Colors.blue,
+            secondary: Colors.blue),
         useMaterial3: true,
       ),
       home: const MyHomePage(title: 'Chat GPT'),
@@ -49,9 +105,39 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<Conversation> conversation = [];
   final myController = TextEditingController();
   ChatGPT? data;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      List<Conversation> conv = await retrieveData();
+      //getting unique number
+      for (var e in conv) {
+        idSet.add(e.id);
+      }
+      idNumbers = idSet.toList();
+      //-1 for recent current conversation
+      //and by default last chat
+      if (idNumbers.isEmpty) {
+        conversation = await retrieveHistoryData(idNumbers.length);
+        currentId = idNumbers.length;
+      } else if (idNumbers.isNotEmpty) {
+        conversation = await retrieveHistoryData(idNumbers.length - 1);
+        currentId = idNumbers.length - 1;
+      }
+
+      // print(
+      //     'id number length is ${idNumbers.length} and conv length is ${conversation.length}');
+      // for (int i = 0; i < conversation.length; i++) {
+      //   print(
+      //       '${conversation[i].id}  ${conversation[i].role}  ${conversation[i].response}');
+      // }
+
+      setState(() {});
+    }); //initstate()
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,48 +145,113 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                conversation = await retrieveHistoryData(idNumbers.length);
+                currentId = idNumbers.length;
+                idSet.add(idNumbers.length);
+                idNumbers = idSet.toList();
+                setState(() {});
+              })
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.inversePrimary,
+                ),
+                child: Container(
+                  alignment: Alignment.bottomLeft,
+                  height: 10,
+                  child: const Text(
+                    'History',
+                    style: TextStyle(
+                      fontSize: 25,
+                    ),
+                  ),
+                )),
+
+            ListView.builder(
+                shrinkWrap: true,
+                itemCount: idNumbers.length,
+                itemBuilder: (((context, index) {
+                  return ListTile(
+                    title: Text('conversation no: ${idNumbers[index] + 1}'),
+                    onTap: () async {
+                      conversation =
+                          await retrieveHistoryData(idNumbers[index]);
+                      currentId = idNumbers[index];
+                      setState(() {});
+                      //check if the context is mounted or not
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  );
+                })))
+            // ListTile(
+            //   title: Text('${idNumbers.length}'),
+            //   onTap: () {
+            //     //ontap code
+            //   },
+            // )
+          ],
+        ),
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
-          if (data?.message.content == null)
-            Text('')
+          if (conversation.isEmpty) //data?.message.content == null
+            const Text('')
           else
             Expanded(
                 child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: ListView.builder(
-                  itemCount: conversation.length,
-                  itemBuilder: ((context, index) {
-                    return Card(
-                      color: conversation[index].role == roleUser
-                          ? Theme.of(context)
-                              .colorScheme
-                              .inversePrimary //Color(0x89ABE3FF)
-                          : Theme.of(context)
-                              .colorScheme
-                              .onPrimary, //Color(0xFCF6F5FF),
-                      margin: conversation[index].role == roleUser
-                          ? EdgeInsets.only(left: 100, top: 10)
-                          : EdgeInsets.only(right: 100, top: 10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          textAlign: TextAlign.left,
-                          conversation[index].response,
-                          style: TextStyle(
-                            color: Colors.grey[800],
-                            fontStyle: FontStyle.italic,
-                            fontFamily: 'Open Sans',
+              padding: const EdgeInsets.all(5.0),
+              child: SingleChildScrollView(
+                reverse: true,
+                child: ListView.separated(
+                    separatorBuilder: (BuildContext context, int index) =>
+                        const SizedBox(height: 10),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: conversation.length,
+                    itemBuilder: ((context, index) {
+                      return Card(
+                        color: conversation[index].role == roleUser
+                            ? Theme.of(context)
+                                .colorScheme
+                                .inversePrimary //Color(0x89ABE3FF)
+                            : Theme.of(context)
+                                .colorScheme
+                                .onPrimary, //Color(0xFCF6F5FF),
+                        margin: conversation[index].role == roleUser
+                            ? const EdgeInsets.only(
+                                left: 100, right: 5, top: 5, bottom: 5)
+                            : const EdgeInsets.only(
+                                right: 100, left: 5, top: 5, bottom: 5),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            textAlign: TextAlign.left,
+                            conversation[index].response,
+                            style: TextStyle(
+                              color: Colors.grey[800],
+                              fontStyle: FontStyle.italic,
+                              fontFamily: 'Open Sans',
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  })),
+                      );
+                    })),
+              ),
             )),
+          //SizedBox(height: 10,),
           if (generatingResponse)
             Text(
-              'Generating Response',
+              'Generating Response...',
               style: TextStyle(
                 color: Colors.grey[800],
                 fontStyle: FontStyle.italic,
@@ -111,9 +262,10 @@ class _MyHomePageState extends State<MyHomePage> {
             children: [
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                   child: TextField(
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       hintText: 'How may I help you?',
                     ),
@@ -122,16 +274,19 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                 child: ElevatedButton(
                   child: const Text('Go'),
                   onPressed: () async {
                     //check the data in text field if the data is enetered
                     if (myController.text == '') {
-                      return null;
+                      return;
                     } else {
-                      conversation.add(
-                          Conversation.fromJson(roleUser, myController.text));
+                      conversation.add(Conversation(
+                          id: currentId,
+                          role: roleUser,
+                          response: myController.text));
                       setState(() {
                         //calling setState for showing sent message and displaying
                         // the generating response value
@@ -139,16 +294,27 @@ class _MyHomePageState extends State<MyHomePage> {
                       });
 
                       data = await fetchData(myController.text, apiKey);
-                      conversation.add(Conversation.fromJson(
-                          roleChatGPT, data!.message.content));
-
+                      conversation.add(Conversation(
+                          id: currentId,
+                          role: roleChatGPT,
+                          response: data!.message.content));
                       //checking null value, then making flag true & when data
                       // is not null we call setState and making flag false again
-                      if (data?.message.content != 'null')
-                        setState(() {
-                          generatingResponse = false;
-                          myController.clear();
-                        });
+                      if (data?.message.content != 'null') {
+                        generatingResponse = false;
+                        setState(() {});
+                      }
+
+                      //inserting data to the local memory
+                      await insertData(Conversation(
+                          id: currentId,
+                          role: roleUser,
+                          response: myController.text));
+                      await insertData(Conversation(
+                          id: currentId,
+                          role: roleChatGPT,
+                          response: data!.message.content));
+                      myController.clear();
                     }
                   },
                 ),

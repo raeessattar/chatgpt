@@ -1,15 +1,16 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-Future<ChatGPT> fetchData(String query, String? api_key) async {
+
+Future<ChatGPT> fetchData(String query, String? apiKey) async {
   Map<String, String> gptHeaders = {
-    'Authorization': 'Bearer $api_key',
+    'Authorization': 'Bearer $apiKey',
     'content-type': 'application/json'
   };
   Map<String, dynamic> gptBody = {
     "model": "gpt-3.5-turbo",
     "messages": [
-      {"role": "user", "content": "$query"}
+      {"role": "user", "content": query}
     ]
   };
 
@@ -51,15 +52,26 @@ class ChatGPTmessage {
 }
 
 class Conversation {
+  final int id;
   final String role;
   final String response;
 
-  const Conversation({required this.role, required this.response});
+  const Conversation({required this.id, required this.role, required this.response});
 
-  factory Conversation.fromJson(mmodel, rresponse) {
-    return Conversation(role: mmodel, response: rresponse);
+  factory Conversation.fromJson(Map<String, dynamic> map) {
+    return Conversation(id: map['id'], role: map['role'], response: map['response']);
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'id' : id,
+      'role': role,
+      'response': response,
+    };
   }
 }
+
+
 
 
 
