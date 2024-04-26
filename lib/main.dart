@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:chatgpt/database_singleton.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -21,6 +22,8 @@ const String roleChatGPT = 'chatgpt';
 bool generatingResponse = false;
 
 //final database;
+//instace of data base;
+late LocalDatabase? instanceDatabase;
 
 List<Conversation> conversation = [];
 Set idSet = {};
@@ -34,41 +37,10 @@ void main() async {
   //this is used in Sqflite tutorial
   WidgetsFlutterBinding.ensureInitialized();
 
+  //local data base singleton class
+  instanceDatabase = await LocalDatabase.initialize();
+
   runApp(const MyApp());
-}
-
-//making function of database
-Future<Database> openMyDatabase() async {
-  final dbPath = await getDatabasesPath();
-  final path = join(dbPath, 'my_database2.db');
-  final database =
-      await openDatabase(path, version: 1, onCreate: (db, version) async {
-    //creating table
-    return db.execute(
-        'CREATE TABLE conversation4(id INTEGER, role TEXT, response TEXT)');
-  });
-  return database;
-}
-
-//insert data function
-Future<void> insertData(Conversation conv) async {
-  final db = await openMyDatabase();
-  await db.insert('conversation4', conv.toMap());
-}
-
-//retrieve list of data of table
-Future<List<Conversation>> retrieveData() async {
-  final db = await openMyDatabase();
-  final List<Map<String, Object?>> dataMaps = await db.query('conversation4');
-  return dataMaps.map<Conversation>((e) => Conversation.fromJson(e)).toList();
-}
-
-//retrieve history data
-Future<List<Conversation>> retrieveHistoryData(int a) async {
-  final db = await openMyDatabase();
-  final List<Map<String, Object?>> dataMaps =
-      await db.query('conversation4', where: 'id = ?', whereArgs: [a]);
-  return dataMaps.map<Conversation>((e) => Conversation.fromJson(e)).toList();
 }
 
 ///
@@ -112,7 +84,8 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      List<Conversation> conv = await retrieveData();
+      List<Conversation> conv =
+          await instanceDatabase!.retrieveData(); // retrieveData();
       //getting unique number
       for (var e in conv) {
         idSet.add(e.id);
@@ -121,16 +94,18 @@ class _MyHomePageState extends State<MyHomePage> {
       //-1 for recent current conversation
       //and by default last chat
       if (idNumbers.isEmpty) {
-        conversation = await retrieveHistoryData(idNumbers.length);
+        conversation = await instanceDatabase!.retrieveHistoryData(
+            idNumbers.length); //retrieveHistoryData(idNumbers.length);
         currentId = idNumbers.length;
       } else if (idNumbers.isNotEmpty) {
-        conversation = await retrieveHistoryData(idNumbers.length - 1);
+        conversation = await instanceDatabase!.retrieveHistoryData(
+            idNumbers.length - 1); //retrieveHistoryData(idNumbers.length - 1);
         currentId = idNumbers.length - 1;
       }
 
       // print(
       //     'id number length is ${idNumbers.length} and conv length is ${conversation.length}');
-      // for (int i = 0; i < conversation.length; i++) {
+      // for (int i = 0; i < conve rsation.length; i++) {
       //   print(
       //       '${conversation[i].id}  ${conversation[i].role}  ${conversation[i].response}');
       // }
@@ -149,7 +124,8 @@ class _MyHomePageState extends State<MyHomePage> {
           IconButton(
               icon: const Icon(Icons.add),
               onPressed: () async {
-                conversation = await retrieveHistoryData(idNumbers.length);
+                conversation = await instanceDatabase!.retrieveHistoryData(
+                    idNumbers.length); //retrieveHistoryData(idNumbers.length);
                 currentId = idNumbers.length;
                 idSet.add(idNumbers.length);
                 idNumbers = idSet.toList();
@@ -183,8 +159,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   return ListTile(
                     title: Text('conversation no: ${idNumbers[index] + 1}'),
                     onTap: () async {
-                      conversation =
-                          await retrieveHistoryData(idNumbers[index]);
+                      conversation = await instanceDatabase!
+                          .retrieveHistoryData(idNumbers[
+                              index]); //retrieveHistoryData(idNumbers[index]);
                       currentId = idNumbers[index];
                       setState(() {});
                       //check if the context is mounted or not
@@ -306,14 +283,22 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
 
                       //inserting data to the local memory
-                      await insertData(Conversation(
+                      await instanceDatabase!.insertData(Conversation(
                           id: currentId,
                           role: roleUser,
                           response: myController.text));
-                      await insertData(Conversation(
+                      //  insertData(Conversation(
+                      //     id: currentId,
+                      //     role: roleUser,
+                      //     response: myController.text));
+                      await instanceDatabase!.insertData(Conversation(
                           id: currentId,
                           role: roleChatGPT,
                           response: data!.message.content));
+                      // insertData(Conversation(
+                      //     id: currentId,
+                      //     role: roleChatGPT,
+                      //     response: data!.message.content));
                       myController.clear();
                     }
                   },
