@@ -1,5 +1,4 @@
 import 'package:chatgpt/api_calls.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -15,14 +14,15 @@ class LocalDatabase {
 
   static initialize() async {
     if (_mydatabase == null) {
+      //we are calling empty constructor to make an instance
       _mydatabase = LocalDatabase._internal();
       _mydatabaseAddress = await _openMyDatabase();
     }
     return _mydatabase!;
   }
 
-  //getter
-  // LocalDatabase get mydatabase => _mydatabase!;
+  //getter (this is to access it globally)
+  static LocalDatabase get mydatabase => _mydatabase!;
 
   //making function of database
   static Future<Database> _openMyDatabase() async {

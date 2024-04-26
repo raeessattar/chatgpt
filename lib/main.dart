@@ -1,34 +1,14 @@
-import 'dart:async';
-
 import 'package:chatgpt/database_singleton.dart';
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
-
 import 'package:chatgpt/api_calls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-///
-///1: we will make a new column in the table
-///2: where each chat room will have unique number
-///3: we will make counter that will incremented after each time app oppened
-///4: this incremented value will be assign to the conversation number
-///5: the data will store in the same table, but with different chatnumber
-///6: when the app is loaded, last conversation will also be opened
 
 String? apiKey;
 const String roleUser = 'user';
 const String roleChatGPT = 'chatgpt';
 bool generatingResponse = false;
 
-//final database;
-//instace of data base;
-late LocalDatabase? instanceDatabase;
-
-List<Conversation> conversation = [];
-Set idSet = {};
-List<dynamic> idNumbers = [];
-int currentId = 1;
 
 void main() async {
   await dotenv.load(fileName: ".env");
@@ -38,7 +18,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   //local data base singleton class
-  instanceDatabase = await LocalDatabase.initialize();
+  ///we are calling a static funtion (.initialize) to store the value of
+  ///private instance _mydatabase.. then we will access it using getter!
+  await LocalDatabase.initialize();
 
   runApp(const MyApp());
 }
@@ -49,6 +31,7 @@ void main() async {
 ///
 ///
 class MyApp extends StatelessWidget {
+  
   const MyApp({super.key});
 
   // This widget is the root of your application.
@@ -77,6 +60,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  //instace of data base 
+  LocalDatabase instanceDatabase = LocalDatabase.mydatabase;
+
+  List<Conversation> conversation = [];
+  Set idSet = {};
+  List<dynamic> idNumbers = [];
+  int currentId = 1;
   final myController = TextEditingController();
   ChatGPT? data;
 
@@ -84,8 +74,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      //LocalDatabase is used in accessing static var and we are using getter!
       List<Conversation> conv =
-          await instanceDatabase!.retrieveData(); // retrieveData();
+          await LocalDatabase.mydatabase.retrieveData(); // retrieveData();
       //getting unique number
       for (var e in conv) {
         idSet.add(e.id);
@@ -94,11 +85,11 @@ class _MyHomePageState extends State<MyHomePage> {
       //-1 for recent current conversation
       //and by default last chat
       if (idNumbers.isEmpty) {
-        conversation = await instanceDatabase!.retrieveHistoryData(
+        conversation = await instanceDatabase.retrieveHistoryData(
             idNumbers.length); //retrieveHistoryData(idNumbers.length);
         currentId = idNumbers.length;
       } else if (idNumbers.isNotEmpty) {
-        conversation = await instanceDatabase!.retrieveHistoryData(
+        conversation = await instanceDatabase.retrieveHistoryData(
             idNumbers.length - 1); //retrieveHistoryData(idNumbers.length - 1);
         currentId = idNumbers.length - 1;
       }
@@ -124,7 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
           IconButton(
               icon: const Icon(Icons.add),
               onPressed: () async {
-                conversation = await instanceDatabase!.retrieveHistoryData(
+                conversation = await instanceDatabase.retrieveHistoryData(
                     idNumbers.length); //retrieveHistoryData(idNumbers.length);
                 currentId = idNumbers.length;
                 idSet.add(idNumbers.length);
@@ -159,7 +150,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   return ListTile(
                     title: Text('conversation no: ${idNumbers[index] + 1}'),
                     onTap: () async {
-                      conversation = await instanceDatabase!
+                      conversation = await instanceDatabase
                           .retrieveHistoryData(idNumbers[
                               index]); //retrieveHistoryData(idNumbers[index]);
                       currentId = idNumbers[index];
@@ -283,7 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
 
                       //inserting data to the local memory
-                      await instanceDatabase!.insertData(Conversation(
+                      await instanceDatabase.insertData(Conversation(
                           id: currentId,
                           role: roleUser,
                           response: myController.text));
@@ -291,7 +282,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       //     id: currentId,
                       //     role: roleUser,
                       //     response: myController.text));
-                      await instanceDatabase!.insertData(Conversation(
+                      await instanceDatabase.insertData(Conversation(
                           id: currentId,
                           role: roleChatGPT,
                           response: data!.message.content));
