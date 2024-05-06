@@ -2,13 +2,22 @@ import 'package:chatgpt/database_singleton.dart';
 import 'package:chatgpt/api_calls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 
 String? apiKey;
+const String meterialAppTitle = 'Chat GPT App';
+const String homePageTitle = 'Chat GPT';
 const String roleUser = 'user';
 const String roleChatGPT = 'chatgpt';
-bool generatingResponse = false;
+const String drawerHeaderText = 'History';
+const String listTileText = 'Conversation No: ';
+const String fontFamily = 'Open Sans';
+const String generatingResponseString = 'Generating Response..';
+const String textBoxHintText = 'How may I help you?';
+const String elevatedButtonMessage = 'Go';
 
+bool generatingResponse = false;
 
 void main() async {
   await dotenv.load(fileName: ".env");
@@ -31,22 +40,25 @@ void main() async {
 ///
 ///
 class MyApp extends StatelessWidget {
-  
   const MyApp({super.key});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chat GPT App',
+      title: meterialAppTitle,
       theme: ThemeData(
+        //fontFamily: fontFamily,
+        textTheme: GoogleFonts.robotoTextTheme(
+          Theme.of(context).textTheme,
+        ),
         colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.blue,
             primary: Colors.blue,
             secondary: Colors.blue),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Chat GPT'),
+      home: const MyHomePage(title: homePageTitle),
     );
   }
 }
@@ -60,7 +72,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  //instace of data base 
+  //instace of data base
   LocalDatabase instanceDatabase = LocalDatabase.mydatabase;
 
   List<Conversation> conversation = [];
@@ -136,7 +148,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   alignment: Alignment.bottomLeft,
                   height: 10,
                   child: const Text(
-                    'History',
+                    drawerHeaderText,
                     style: TextStyle(
                       fontSize: 25,
                     ),
@@ -148,10 +160,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 itemCount: idNumbers.length,
                 itemBuilder: (((context, index) {
                   return ListTile(
-                    title: Text('conversation no: ${idNumbers[index] + 1}'),
+                    title: Text('$listTileText ${idNumbers[index] + 1}'),
                     onTap: () async {
-                      conversation = await instanceDatabase
-                          .retrieveHistoryData(idNumbers[
+                      conversation = await instanceDatabase.retrieveHistoryData(
+                          idNumbers[
                               index]); //retrieveHistoryData(idNumbers[index]);
                       currentId = idNumbers[index];
                       setState(() {});
@@ -208,7 +220,6 @@ class _MyHomePageState extends State<MyHomePage> {
                             style: TextStyle(
                               color: Colors.grey[800],
                               fontStyle: FontStyle.italic,
-                              fontFamily: 'Open Sans',
                             ),
                           ),
                         ),
@@ -219,11 +230,11 @@ class _MyHomePageState extends State<MyHomePage> {
           //SizedBox(height: 10,),
           if (generatingResponse)
             Text(
-              'Generating Response...',
+              generatingResponseString,
               style: TextStyle(
                 color: Colors.grey[800],
-                fontStyle: FontStyle.italic,
-                fontFamily: 'Open Sans',
+                //fontStyle: FontStyle.italic,
+                //fontFamily: 'Open Sans',
               ),
             ),
           Row(
@@ -235,7 +246,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: TextField(
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
-                      hintText: 'How may I help you?',
+                      hintText: textBoxHintText,
                     ),
                     controller: myController,
                   ),
@@ -245,7 +256,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                 child: ElevatedButton(
-                  child: const Text('Go'),
+                  child: const Text(elevatedButtonMessage),
                   onPressed: () async {
                     //check the data in text field if the data is enetered
                     if (myController.text == '') {

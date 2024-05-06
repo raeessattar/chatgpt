@@ -20,7 +20,6 @@ Future<ChatGPT> fetchData(String query, String? apiKey) async {
     headers: gptHeaders,
   );
 
-  print(response.body);
   return ChatGPT.fromJson(jsonDecode(response.body));
 }
 
